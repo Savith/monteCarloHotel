@@ -1,13 +1,4 @@
-import streamlit as st
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-sns.set_style("whitegrid")
-
-# --- Aba Principal: Tabs Globais ---
-tabs = st.tabs(["Reformas", "Receita", "Cenários", "Custos Fixos"])
+...
 
 # --- Nova Aba: Reformas ---
 with tabs[0]:
