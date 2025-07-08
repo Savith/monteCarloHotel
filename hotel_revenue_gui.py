@@ -11,7 +11,7 @@ st.set_page_config(page_title="Hotel Revenue Monte Carlo", layout="wide")
 st.title("Monte Carlo Hotel Revenue Simulator")
 
 # --- Add Background Image or Logo ---
-image = Image.open("/mnt/data/dadb6196-cfa8-481d-9385-e329d178a47f.png")
+image = Image.open("podered.jpg")
 st.image(image, caption="Podere di Sasso", use_column_width=True)
 
 # --- Sidebar Inputs ---
