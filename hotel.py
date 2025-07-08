@@ -14,7 +14,7 @@ st.title("Monte Carlo Hotel Revenue Simulator")
 
 # --- Add Background Image or Logo ---
 try:
-    image_path = "assets/podere.png"
+    image_path = "podere.png"
     if os.path.exists(image_path):
         image = Image.open(image_path)
         st.image(image, caption="Podere di Sasso", use_container_width=True)
