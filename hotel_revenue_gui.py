@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import norm
 from PIL import Image
+import os
 
 # --- Streamlit Page Config ---
 st.set_page_config(page_title="Hotel Revenue Monte Carlo", layout="wide")
@@ -12,13 +13,18 @@ st.title("Monte Carlo Hotel Revenue Simulator")
 
 # --- Add Background Image or Logo ---
 try:
-    image = Image.open("podered.jpg")  # Caminho relativo correto
-    st.image(image, caption="Podere di Sasso", use_container_width=True)
+    image_path = "podered.png"
+    if os.path.exists(image_path):
+        image = Image.open(image_path)
+        st.image(image, caption="Podere di Sasso", use_container_width=True)
+    else:
+        st.warning("Image not found. Please ensure 'assets/podere.png' exists in your project folder.")
 except:
-    st.warning("Image not found. Please ensure 'assets/podere.png' exists in your project folder.")
+    st.warning("Error loading image.")
 
 # --- Sidebar Inputs ---
 st.sidebar.header("Simulation Parameters")
+scenario_name = st.sidebar.text_input("Scenario Name", value="Default Scenario")
 n_rooms = st.sidebar.number_input("Number of Rooms", min_value=1, max_value=100, value=11)
 n_simulations = st.sidebar.slider("Number of Simulations", 1000, 500000, 10000, step=1000)
 
@@ -79,6 +85,7 @@ for month in range(1, 13):
 yearly_revenue_sim = np.array(list(results_monthly.values())).sum(axis=0)
 
 st.subheader("Annual Revenue Summary")
+st.metric("Scenario", scenario_name)
 st.metric("Mean Annual Revenue", f"€{np.mean(yearly_revenue_sim):,.2f}")
 st.metric("P5 (Conservative)", f"€{np.percentile(yearly_revenue_sim, 5):,.2f}")
 st.metric("P95 (Optimistic)", f"€{np.percentile(yearly_revenue_sim, 95):,.2f}")
@@ -97,6 +104,7 @@ for i, (month, revenue) in enumerate(results_monthly.items()):
     ax.legend()
 fig.tight_layout()
 st.pyplot(fig, use_container_width=True)
+plt.close(fig)
 
 # --- Export ---
 st.subheader("Export Results")
@@ -127,3 +135,4 @@ ax2.set_xlabel("ADR (€)")
 ax2.set_ylabel("Expected Revenue (€)")
 ax2.grid(True)
 st.pyplot(fig2, use_container_width=True)
+plt.close(fig2)
