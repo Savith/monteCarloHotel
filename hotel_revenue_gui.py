@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from scipy.stats import norm
 
 # --- Streamlit Page Config ---
 st.set_page_config(page_title="Hotel Revenue Monte Carlo", layout="wide")
@@ -25,6 +26,9 @@ st.sidebar.header("Additional Guest Spending")
 guest_spending_per_night_per_room = st.sidebar.number_input("Avg. Guest Spending per Night", value=50)
 spending_std_dev = st.sidebar.number_input("Spending Std Dev", value=15)
 
+st.sidebar.header("ADR-Occupancy Elasticity")
+adr_occupancy_correlation = st.sidebar.slider("Correlation (-1 to 0)", -1.0, 0.0, -0.5)
+
 # ADR per month input
 def adr_input():
     st.sidebar.subheader("Monthly ADR")
@@ -44,12 +48,21 @@ days_in_month = {
 results_monthly = {}
 
 for month in range(1, 13):
-    occupancy_sim = np.random.triangular(occupancy_min, occupancy_mode, occupancy_max, n_simulations)
-    occupancy_sim = np.clip(occupancy_sim, 0, 1)
-
     adr_base = monthly_adr_base[month]
+
+    # Generate correlated standard normal variables
+    mean = [0, 0]
+    cov = [[1, adr_occupancy_correlation], [adr_occupancy_correlation, 1]]
+    z = np.random.multivariate_normal(mean, cov, n_simulations)
+    z1, z2 = z[:, 0], z[:, 1]
+
+    # Occupancy from triangular transformed through normal
+    occupancy_sim = np.clip(np.interp(norm.cdf(z1), [0, 1], [occupancy_min, occupancy_max]), 0, 1)
+
+    # ADR adjusted based on z2
     adr_sim = np.random.normal(adr_base, adr_base * adr_std_dev_percentage, n_simulations)
-    adr_sim[adr_sim < 0] = 0
+    adr_sim *= (1 - 0.2 * z2)
+    adr_sim = np.clip(adr_sim, 0, None)
 
     spend_sim = np.random.normal(guest_spending_per_night_per_room, spending_std_dev, n_simulations)
     spend_sim[spend_sim < 0] = 0
