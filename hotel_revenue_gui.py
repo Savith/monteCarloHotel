@@ -11,8 +11,11 @@ st.set_page_config(page_title="Hotel Revenue Monte Carlo", layout="wide")
 st.title("Monte Carlo Hotel Revenue Simulator")
 
 # --- Add Background Image or Logo ---
-image = Image.open("podered.jpg")
-st.image(image, caption="Podere di Sasso", use_column_width=True)
+try:
+    image = Image.open("podered.jpg")  # Caminho relativo correto
+    st.image(image, caption="Podere di Sasso", use_container_width=True)
+except:
+    st.warning("Image not found. Please ensure 'assets/podere.png' exists in your project folder.")
 
 # --- Sidebar Inputs ---
 st.sidebar.header("Simulation Parameters")
@@ -45,7 +48,6 @@ spending_std_dev = st.sidebar.number_input("Spending Std Dev", value=15)
 st.sidebar.header("ADR-Occupancy Elasticity")
 adr_occupancy_correlation = st.sidebar.slider("Correlation (-1 to 0)", -1.0, 0.0, -0.5)
 
-# Base ADR input
 base_adr = st.sidebar.number_input("Base ADR (High Season, e.g. July)", value=127)
 
 # --- Simulation Core Logic ---
@@ -59,21 +61,16 @@ results_monthly = {}
 
 for month in range(1, 13):
     adr_base = monthly_adr_base[month]
-
     mean = [0, 0]
     cov = [[1, adr_occupancy_correlation], [adr_occupancy_correlation, 1]]
     z = np.random.multivariate_normal(mean, cov, n_simulations)
     z1, z2 = z[:, 0], z[:, 1]
-
     occupancy_sim = np.clip(np.interp(norm.cdf(z1), [0, 1], [occupancy_min, occupancy_max]), 0, 1)
-
     adr_sim = np.random.normal(adr_base, adr_base * adr_std_dev_percentage, n_simulations)
     adr_sim *= (1 - 0.2 * z2)
     adr_sim = np.clip(adr_sim, 0, None)
-
     spend_sim = np.random.normal(guest_spending_per_night_per_room, spending_std_dev, n_simulations)
     spend_sim[spend_sim < 0] = 0
-
     revenue_per_night = (adr_sim + spend_sim) * occupancy_sim * n_rooms
     monthly_revenue = revenue_per_night * days_in_month[month]
     results_monthly[month] = monthly_revenue
@@ -99,7 +96,7 @@ for i, (month, revenue) in enumerate(results_monthly.items()):
     ax.set_title(f"Month {month:02d}")
     ax.legend()
 fig.tight_layout()
-st.pyplot(fig)
+st.pyplot(fig, use_container_width=True)
 
 # --- Export ---
 st.subheader("Export Results")
@@ -108,3 +105,25 @@ if st.button("Export to Excel"):
     df_export["Annual"] = yearly_revenue_sim
     df_export.to_excel("hotel_revenue_simulation.xlsx", index=False)
     st.success("Exported hotel_revenue_simulation.xlsx")
+
+# --- Ideal Price Simulation ---
+st.subheader("Ideal ADR Price Simulation")
+adrs_to_test = np.arange(80, 180, 5)
+expected_revenues = []
+for test_adr in adrs_to_test:
+    simulated = []
+    for month in range(1, 13):
+        adr_base = test_adr * seasonality_coefficients[month]
+        adr_sim = np.random.normal(adr_base, adr_base * adr_std_dev_percentage, n_simulations)
+        occupancy_sim = np.random.triangular(occupancy_min, occupancy_mode, occupancy_max, n_simulations)
+        revenue = adr_sim * occupancy_sim * n_rooms * days_in_month[month]
+        simulated.append(np.mean(revenue))
+    expected_revenues.append(np.sum(simulated))
+
+fig2, ax2 = plt.subplots(figsize=(10, 5))
+ax2.plot(adrs_to_test, expected_revenues, marker='o')
+ax2.set_title("Expected Annual Revenue by ADR")
+ax2.set_xlabel("ADR (€)")
+ax2.set_ylabel("Expected Revenue (€)")
+ax2.grid(True)
+st.pyplot(fig2, use_container_width=True)
