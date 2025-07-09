@@ -1,4 +1,4 @@
-# Monte Carlo Hotel Revenue Simulator - Versão Melhorada com np.exp para elasticidade e exibição de desvio padrão
+# Monte Carlo Hotel Revenue Simulator - Versão Melhorada com np.exp para elasticidade e exibição de desvio padrão + salvar/carregar cenário
 
 import streamlit as st
 import numpy as np
@@ -69,6 +69,41 @@ with tab_inputs:
     guest_spending_per_night_per_room = st.number_input("Avg. Guest Spending per Night", value=50, key="guest_spending_per_night_per_room")
     spending_std_dev = st.number_input("Spending Std Dev", value=15, key="spending_std_dev")
 
+    # --- Save/Load Scenario ---
+    st.subheader("Save or Load Scenario")
+    if st.button("Save Current Scenario"):
+        scenario_data = {
+            "scenario_name": scenario_name,
+            "n_rooms": n_rooms,
+            "n_simulations": n_simulations,
+            "base_adr": base_adr,
+            "inflation_rate": inflation_rate,
+            "demand_growth": demand_growth,
+            "unexpected_costs_mean": unexpected_costs_mean,
+            "unexpected_costs_std": unexpected_costs_std,
+            "occupancy_min": occupancy_min,
+            "occupancy_mode": occupancy_mode,
+            "occupancy_max": occupancy_max,
+            "adr_std_dev_percentage": adr_std_dev_percentage,
+            "adr_occupancy_correlation": adr_occupancy_correlation,
+            "elasticity_coefficient": elasticity_coefficient,
+            "seasonality_coefficients": seasonality_coefficients,
+            "guest_spending_per_night_per_room": guest_spending_per_night_per_room,
+            "spending_std_dev": spending_std_dev
+        }
+        with open("saved_scenario.json", "w") as f:
+            json.dump(scenario_data, f)
+        st.success("Scenario saved successfully!")
+
+    if st.button("Load Last Scenario"):
+        try:
+            with open("saved_scenario.json", "r") as f:
+                loaded = json.load(f)
+            st.session_state.update(loaded)
+            st.experimental_rerun()
+        except:
+            st.error("No saved scenario found.")
+
 # --- Simulação ---
 days_in_month = {
     1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30,
@@ -126,7 +161,6 @@ with tab_export:
     df_export = pd.DataFrame({f"Month {m:02d}": results_monthly[m] for m in results_monthly})
     df_export["Annual"] = yearly_revenue_sim
 
-    # Botão de download via base64
     towrite = pd.ExcelWriter("temp.xlsx", engine='openpyxl')
     df_export.to_excel(towrite, index=False, sheet_name='Sheet1')
     towrite.close()
