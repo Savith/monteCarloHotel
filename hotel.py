@@ -10,6 +10,7 @@ from PIL import Image
 import os
 import json
 import base64
+import openpyxl  # substitui xlsxwriter se necessário
 
 # --- Configuração da Página ---
 st.set_page_config(page_title="Hotel Revenue Monte Carlo", layout="wide")
@@ -126,7 +127,7 @@ with tab_export:
     df_export["Annual"] = yearly_revenue_sim
 
     # Botão de download via base64
-    towrite = pd.ExcelWriter("temp.xlsx", engine='xlsxwriter')
+    towrite = pd.ExcelWriter("temp.xlsx", engine='openpyxl')
     df_export.to_excel(towrite, index=False, sheet_name='Sheet1')
     towrite.close()
     with open("temp.xlsx", "rb") as f:
