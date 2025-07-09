@@ -9,6 +9,7 @@ from scipy.stats import norm
 from PIL import Image
 import os
 import json
+import base64
 
 # --- Configuração da Página ---
 st.set_page_config(page_title="Hotel Revenue Monte Carlo", layout="wide")
@@ -16,7 +17,7 @@ st.title("Monte Carlo Hotel Revenue Simulator")
 
 # --- Imagem ---
 try:
-    image_path = "podere.png"
+    image_path = "assets/podere.png"
     if os.path.exists(image_path):
         image = Image.open(image_path)
         st.image(image, caption="Podere di Sasso", use_container_width=True)
@@ -84,7 +85,7 @@ for month in range(1, 13):
     z1, z2 = z[:, 0], z[:, 1]
     occupancy_sim = np.clip(np.interp(norm.cdf(z1), [0, 1], [occupancy_min, occupancy_max]), 0, 1)
     adr_sim = np.random.normal(adr_base, adr_base * adr_std_dev_percentage, n_simulations)
-    adr_sim *= np.exp(-elasticity_coefficient * z2)  # exponencial ajustado
+    adr_sim *= np.exp(-elasticity_coefficient * z2)
     adr_sim = np.clip(adr_sim, 0, None)
     spend_sim = np.random.normal(guest_spending_per_night_per_room, spending_std_dev, n_simulations)
     spend_sim[spend_sim < 0] = 0
@@ -121,8 +122,18 @@ with tab_results:
 # --- Exportação ---
 with tab_export:
     st.header("Export Results")
-    if st.button("Export to Excel"):
-        df_export = pd.DataFrame({f"Month {m:02d}": results_monthly[m] for m in results_monthly})
-        df_export["Annual"] = yearly_revenue_sim
+    df_export = pd.DataFrame({f"Month {m:02d}": results_monthly[m] for m in results_monthly})
+    df_export["Annual"] = yearly_revenue_sim
+
+    # Botão de download via base64
+    towrite = pd.ExcelWriter("temp.xlsx", engine='xlsxwriter')
+    df_export.to_excel(towrite, index=False, sheet_name='Sheet1')
+    towrite.close()
+    with open("temp.xlsx", "rb") as f:
+        b64 = base64.b64encode(f.read()).decode()
+        href = f'<a href="data:application/octet-stream;base64,{b64}" download="hotel_revenue_simulation.xlsx">📥 Download Excel File</a>'
+        st.markdown(href, unsafe_allow_html=True)
+
+    if st.button("Save to File Server (Local only)"):
         df_export.to_excel("hotel_revenue_simulation.xlsx", index=False)
         st.success("Exported hotel_revenue_simulation.xlsx")
