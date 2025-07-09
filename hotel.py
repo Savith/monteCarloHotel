@@ -1,5 +1,3 @@
-# Monte Carlo Hotel Revenue Simulator - Versão Melhorada com np.exp para elasticidade e exibição de desvio padrão + salvar/carregar cenário
-
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -10,7 +8,7 @@ from PIL import Image
 import os
 import json
 import base64
-import openpyxl  # substitui xlsxwriter se necessário
+import openpyxl
 
 # --- Configuração da Página ---
 st.set_page_config(page_title="Hotel Revenue Monte Carlo", layout="wide")
@@ -23,7 +21,7 @@ try:
         image = Image.open(image_path)
         st.image(image, caption="Podere di Sasso", use_container_width=True)
     else:
-        st.warning("Image not found. Please ensure 'assets/podere.png' exists in your project folder.")
+        st.warning("Image not found. Please ensure 'podere.png' exists in your project folder.")
 except:
     st.warning("Error loading image.")
 
@@ -59,11 +57,19 @@ with tab_inputs:
     elasticity_coefficient = st.slider("Elasticity Coefficient (Exp Model)", 0.0, 1.0, 0.2, step=0.01, key="elasticity_coefficient")
 
     st.subheader("Seasonality Coefficients")
-    default_seasonality = [0.111, 0.167, 0.167, 0.444, 0.444, 0.556, 0.833, 1.0, 0.833, 0.444, 0.333, 0.222]
+    default_seasonality = [0.34, 0.22, 0.52, 0.81, 1.00, 1.56, 2.05, 2.39, 1.37, 0.96, 0.40, 0.38]
     seasonality_coefficients = {}
     for i, coef in enumerate(default_seasonality):
         month = i + 1
-        seasonality_coefficients[month] = st.slider(f"Reduction Coef. Month {month:02d}", 0.0, 1.0, coef, key=f"seasonality_{month}")
+        # AGORA PERMITE ATÉ 3.0!
+        seasonality_coefficients[month] = st.slider(
+            f"Seasonality Coef. Month {month:02d}", 0.0, 3.0, float(coef), step=0.01, key=f"seasonality_{month}"
+        )
+
+    st.subheader("Seasonality Noise")
+    seasonality_noise_perc = st.slider(
+        "Seasonality Noise (%)", 0.0, 0.5, 0.08, step=0.01, key="seasonality_noise_perc"
+    )
 
     st.subheader("Guest Spending")
     guest_spending_per_night_per_room = st.number_input("Avg. Guest Spending per Night", value=50, key="guest_spending_per_night_per_room")
@@ -88,6 +94,7 @@ with tab_inputs:
             "adr_occupancy_correlation": adr_occupancy_correlation,
             "elasticity_coefficient": elasticity_coefficient,
             "seasonality_coefficients": seasonality_coefficients,
+            "seasonality_noise_perc": seasonality_noise_perc,
             "guest_spending_per_night_per_room": guest_spending_per_night_per_room,
             "spending_std_dev": spending_std_dev
         }
@@ -110,17 +117,23 @@ days_in_month = {
     7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31
 }
 
-monthly_adr_base = {month: base_adr * seasonality_coefficients[month] for month in range(1, 13)}
 results_monthly = {}
 
 for month in range(1, 13):
-    adr_base = monthly_adr_base[month]
+    coef = seasonality_coefficients[month]
+    # Aplica ruído gaussiano multiplicativo para cada simulação
+    noise = np.random.normal(1.0, seasonality_noise_perc, n_simulations)
+    seasonal_adj = coef * noise
+    # Garante que o índice não fica negativo
+    seasonal_adj = np.clip(seasonal_adj, 0, None)
+
+    adr_base = base_adr * seasonal_adj
     mean = [0, 0]
     cov = [[1, adr_occupancy_correlation], [adr_occupancy_correlation, 1]]
     z = np.random.multivariate_normal(mean, cov, n_simulations)
     z1, z2 = z[:, 0], z[:, 1]
     occupancy_sim = np.clip(np.interp(norm.cdf(z1), [0, 1], [occupancy_min, occupancy_max]), 0, 1)
-    adr_sim = np.random.normal(adr_base, adr_base * adr_std_dev_percentage, n_simulations)
+    adr_sim = np.random.normal(adr_base, adr_base * adr_std_dev_percentage)
     adr_sim *= np.exp(-elasticity_coefficient * z2)
     adr_sim = np.clip(adr_sim, 0, None)
     spend_sim = np.random.normal(guest_spending_per_night_per_room, spending_std_dev, n_simulations)
